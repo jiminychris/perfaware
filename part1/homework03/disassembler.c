@@ -14,12 +14,12 @@
 char *OperatorLookup[] =
 {
     "ADD",
-    "???",
-    "???",
-    "???",
-    "???",
+    "OR",
+    "ADC",
+    "SBB",
+    "AND",
     "SUB",
-    "???",
+    "XOR",
     "CMP",
 };
 char *RegisterLookup[] =
@@ -53,31 +53,133 @@ char *MemoryModeLookup[] =
     "BX",
 };
 char *JumpLookup[256];
+char *ParameterlessLookup[256];
 
 #define ArrayCount(Array) (sizeof(Array) / sizeof(Array[0]))
 
 int main(int ArgCount, char **Args)
 {
-    JumpLookup[0x75] = "jnz";
-    JumpLookup[0x74] = "je";
-    JumpLookup[0x7C] = "jl";
-    JumpLookup[0x7E] = "jle";
-    JumpLookup[0x72] = "jb";
-    JumpLookup[0x76] = "jbe";
-    JumpLookup[0x7A] = "jp";
-    JumpLookup[0x70] = "jo";
-    JumpLookup[0x78] = "js";
-    JumpLookup[0x7D] = "jnl";
-    JumpLookup[0x7F] = "jg";
-    JumpLookup[0x73] = "jnb";
-    JumpLookup[0x77] = "ja";
-    JumpLookup[0x7B] = "jnp";
-    JumpLookup[0x71] = "jno";
-    JumpLookup[0x79] = "jns";
-    JumpLookup[0xE2] = "loop";
-    JumpLookup[0xE1] = "loopz";
-    JumpLookup[0xE0] = "loopnz";
-    JumpLookup[0xE3] = "jcxz";
+    ParameterlessLookup[0x06] = "PUSH ES";
+    ParameterlessLookup[0x07] = "POP ES";
+    //
+    ParameterlessLookup[0x0E] = "PUSH CS";
+    //
+    ParameterlessLookup[0x16] = "PUSH SS";
+    ParameterlessLookup[0x17] = "POP SS";
+    //
+    ParameterlessLookup[0x1E] = "PUSH DS";
+    ParameterlessLookup[0x1F] = "POP DS";
+    //
+    ParameterlessLookup[0x26] = "ES";
+    ParameterlessLookup[0x27] = "DAA";
+    //
+    ParameterlessLookup[0x2E] = "CS";
+    ParameterlessLookup[0x2F] = "DAS";
+    //
+    ParameterlessLookup[0x36] = "SS";
+    ParameterlessLookup[0x37] = "AAA";
+    //
+    ParameterlessLookup[0x3E] = "DS";
+    ParameterlessLookup[0x3F] = "AAS";
+    ParameterlessLookup[0x40] = "INC AX";
+    ParameterlessLookup[0x41] = "INC CX";
+    ParameterlessLookup[0x42] = "INC DX";
+    ParameterlessLookup[0x43] = "INC BX";
+    ParameterlessLookup[0x44] = "INC SP";
+    ParameterlessLookup[0x45] = "INC BP";
+    ParameterlessLookup[0x46] = "INC SI";
+    ParameterlessLookup[0x47] = "INC DI";
+    ParameterlessLookup[0x48] = "DEC AX";
+    ParameterlessLookup[0x49] = "DEC CX";
+    ParameterlessLookup[0x4A] = "DEC DX";
+    ParameterlessLookup[0x4B] = "DEC BX";
+    ParameterlessLookup[0x4C] = "DEC SP";
+    ParameterlessLookup[0x4D] = "DEC BP";
+    ParameterlessLookup[0x4E] = "DEC SI";
+    ParameterlessLookup[0x4F] = "DEC DI";
+    ParameterlessLookup[0x50] = "PUSH AX";
+    ParameterlessLookup[0x51] = "PUSH CX";
+    ParameterlessLookup[0x52] = "PUSH DX";
+    ParameterlessLookup[0x53] = "PUSH BX";
+    ParameterlessLookup[0x54] = "PUSH SP";
+    ParameterlessLookup[0x55] = "PUSH BP";
+    ParameterlessLookup[0x56] = "PUSH SI";
+    ParameterlessLookup[0x57] = "PUSH DI";
+    ParameterlessLookup[0x58] = "POP AX";
+    ParameterlessLookup[0x59] = "POP CX";
+    ParameterlessLookup[0x5A] = "POP DX";
+    ParameterlessLookup[0x5B] = "POP BX";
+    ParameterlessLookup[0x5C] = "POP SP";
+    ParameterlessLookup[0x5D] = "POP BP";
+    ParameterlessLookup[0x5E] = "POP SI";
+    ParameterlessLookup[0x5F] = "POP DI";
+    //
+    JumpLookup[0x70] = "JO";
+    JumpLookup[0x71] = "JNO";
+    JumpLookup[0x72] = "JB";
+    JumpLookup[0x73] = "JNB";
+    JumpLookup[0x74] = "JE";
+    JumpLookup[0x75] = "JNZ";
+    JumpLookup[0x76] = "JBE";
+    JumpLookup[0x77] = "JA";
+    JumpLookup[0x78] = "JS";
+    JumpLookup[0x79] = "JNS";
+    JumpLookup[0x7A] = "JP";
+    JumpLookup[0x7B] = "JNP";
+    JumpLookup[0x7C] = "JL";
+    JumpLookup[0x7D] = "JNL";
+    JumpLookup[0x7E] = "JLE";
+    JumpLookup[0x7F] = "JG";
+    //
+    ParameterlessLookup[0x90] = "NOP";
+    ParameterlessLookup[0x91] = "XCHG AX, CX";
+    ParameterlessLookup[0x92] = "XCHG AX, DX";
+    ParameterlessLookup[0x93] = "XCHG AX, BX";
+    ParameterlessLookup[0x94] = "XCHG AX, SP";
+    ParameterlessLookup[0x95] = "XCHG AX, BP";
+    ParameterlessLookup[0x96] = "XCHG AX, SI";
+    ParameterlessLookup[0x97] = "XCHG AX, DI";
+    ParameterlessLookup[0x98] = "CBW";
+    ParameterlessLookup[0x99] = "CWD";
+    //
+    ParameterlessLookup[0x9B] = "WAIT";
+    ParameterlessLookup[0x9C] = "PUSHF";
+    ParameterlessLookup[0x9D] = "POPF";
+    ParameterlessLookup[0x9E] = "SAHF";
+    ParameterlessLookup[0x9F] = "LAHF";
+    //
+    ParameterlessLookup[0xC3] = "RET";
+    //
+    ParameterlessLookup[0xCB] = "RET";
+    //
+    ParameterlessLookup[0xCC] = "INT 3";
+    //
+    ParameterlessLookup[0xCE] = "INTO";
+    ParameterlessLookup[0xCF] = "IRET";
+    //
+    JumpLookup[0xE0] = "LOOPNZ";
+    JumpLookup[0xE1] = "LOOPZ";
+    JumpLookup[0xE2] = "LOOP";
+    JumpLookup[0xE3] = "JCXZ";
+    //
+    ParameterlessLookup[0xEC] = "IN AL, DX";
+    ParameterlessLookup[0xED] = "IN AX, DX";
+    ParameterlessLookup[0xEE] = "OUT AL, DX";
+    ParameterlessLookup[0xEF] = "OUT AX, DX";
+    ParameterlessLookup[0xF0] = "LOCK";
+    //
+    ParameterlessLookup[0xF2] = "REPNE";
+    ParameterlessLookup[0xF3] = "REP";
+    ParameterlessLookup[0xF4] = "HLT";
+    ParameterlessLookup[0xF5] = "CMC";
+    //
+    ParameterlessLookup[0xF8] = "CLC";
+    ParameterlessLookup[0xF9] = "STC";
+    ParameterlessLookup[0xFA] = "CLI";
+    ParameterlessLookup[0xFB] = "STI";
+    ParameterlessLookup[0xFC] = "CLD";
+    ParameterlessLookup[0xFD] = "STD";
+
     if (2 == ArgCount)
     {
         char *FileName = Args[1];
@@ -102,7 +204,7 @@ int main(int ArgCount, char **Args)
                 {
                     Data = (InstructionStream[InstructionIndex++] << 8) | Data;
                 }
-                printf("mov %s, %d\n", RegisterLookup[RegIndex], Data);
+                printf("MOV %s, %d\n", RegisterLookup[RegIndex], Data);
             }
             // Register/memory to/from register
             // Checking if Byte0 matches 100010dw
@@ -136,7 +238,7 @@ int main(int ArgCount, char **Args)
                         snprintf(MemoryAddressOperandBuffer, sizeof(MemoryAddressOperandBuffer), "[%s]", MemoryAddress);
                         Operands[!RegMode] = RegisterLookup[RegIndex];
                         Operands[RegMode] = MemoryAddressOperandBuffer;
-                        printf("mov %s, %s\n", Operands[0], Operands[1]);
+                        printf("MOV %s, %s\n", Operands[0], Operands[1]);
                     } break;
 
                     case MODE_MEMORY_DISPLACEMENT_8_BIT:
@@ -151,7 +253,7 @@ int main(int ArgCount, char **Args)
                         snprintf(MemoryAddressOperandBuffer, sizeof(MemoryAddressOperandBuffer), "[%s]", MemoryAddress);
                         Operands[!RegMode] = RegisterLookup[RegIndex];
                         Operands[RegMode] = MemoryAddressOperandBuffer;
-                        printf("mov %s, %s\n", Operands[0], Operands[1]);
+                        printf("MOV %s, %s\n", Operands[0], Operands[1]);
                     } break;
 
                     case MODE_MEMORY_DISPLACEMENT_16_BIT:
@@ -168,7 +270,7 @@ int main(int ArgCount, char **Args)
                         snprintf(MemoryAddressOperandBuffer, sizeof(MemoryAddressOperandBuffer), "[%s]", MemoryAddress);
                         Operands[!RegMode] = RegisterLookup[RegIndex];
                         Operands[RegMode] = MemoryAddressOperandBuffer;
-                        printf("mov %s, %s\n", Operands[0], Operands[1]);
+                        printf("MOV %s, %s\n", Operands[0], Operands[1]);
                     } break;
 
                     case MODE_REGISTER:
@@ -176,7 +278,7 @@ int main(int ArgCount, char **Args)
                         unsigned char R_MIndex = R_M | (DataSize << 3);
                         Operands[!RegMode] = RegisterLookup[RegIndex];
                         Operands[RegMode] = RegisterLookup[R_MIndex];
-                        printf("mov %s, %s\n", Operands[0], Operands[1]);
+                        printf("MOV %s, %s\n", Operands[0], Operands[1]);
                     } break;
 
                     default:
@@ -193,7 +295,7 @@ int main(int ArgCount, char **Args)
                 unsigned char AddressLo = InstructionStream[InstructionIndex++];
                 unsigned char AddressHi = InstructionStream[InstructionIndex++];
                 int Address = (AddressHi << 8) | AddressLo;
-                printf("mov %s, [%u]\n", RegisterLookup[DataSize << 3], Address);
+                printf("MOV %s, [%u]\n", RegisterLookup[DataSize << 3], Address);
             }
             // Memory from accumulator
             // Checking if Byte0 matches 1010001w
@@ -203,7 +305,7 @@ int main(int ArgCount, char **Args)
                 unsigned char AddressLo = InstructionStream[InstructionIndex++];
                 unsigned char AddressHi = InstructionStream[InstructionIndex++];
                 int Address = (AddressHi << 8) | AddressLo;
-                printf("mov [%u], %s\n", Address, RegisterLookup[DataSize << 3]);
+                printf("MOV [%u], %s\n", Address, RegisterLookup[DataSize << 3]);
             }
             // Immediate to register/memory
             // Checking if Byte0 matches 11000110w
@@ -240,7 +342,7 @@ int main(int ArgCount, char **Args)
                         {
                             snprintf(DataBuffer, sizeof(DataBuffer), "byte %d", Data);
                         }
-                        printf("mov [%s], %s\n", MemoryAddress, DataBuffer);
+                        printf("MOV [%s], %s\n", MemoryAddress, DataBuffer);
                     } break;
 
                     case MODE_MEMORY_DISPLACEMENT_8_BIT:
@@ -262,7 +364,7 @@ int main(int ArgCount, char **Args)
                         {
                             snprintf(DataBuffer, sizeof(DataBuffer), "byte %d", Data);
                         }
-                        printf("mov [%s], %s\n", MemoryAddress, DataBuffer);
+                        printf("MOV [%s], %s\n", MemoryAddress, DataBuffer);
                     } break;
 
                     case MODE_MEMORY_DISPLACEMENT_16_BIT:
@@ -286,7 +388,7 @@ int main(int ArgCount, char **Args)
                         {
                             snprintf(DataBuffer, sizeof(DataBuffer), "byte %d", Data);
                         }
-                        printf("mov [%s], %s\n", MemoryAddress, DataBuffer);
+                        printf("MOV [%s], %s\n", MemoryAddress, DataBuffer);
                     } break;
 
                     case MODE_REGISTER:
@@ -297,7 +399,7 @@ int main(int ArgCount, char **Args)
                         {
                             Data = (InstructionStream[InstructionIndex++] << 8) | Data;
                         }
-                        printf("mov %s, %d\n", RegisterLookup[R_MIndex], Data);
+                        printf("MOV %s, %d\n", RegisterLookup[R_MIndex], Data);
                     } break;
 
                     default:
@@ -506,9 +608,30 @@ int main(int ArgCount, char **Args)
                 char *RegisterName = RegisterLookup[DataSize << 3];
                 printf("%s %s, %d\n", Operator, RegisterName, Data);
             }
+#if 0
+            else if (0xFF == Byte0)
+            {
+                unsigned char Byte1 = InstructionStream[InstructionIndex++];
+                unsigned char Mode = (Byte1 >> 6) & 3;
+                unsigned char ShortOpCode = (Byte1 >> 3) & 7;
+                unsigned char R_M = Byte1 & 7;
+                // 000: INC  MEM16
+                // 001: DEC  MEM16
+                // 010: CALL REG16/MEM16 (intra)
+                // 011: CALL MEM16 (intersegment)
+                // 100: JMP  REG16/MEM16 (intra)
+                // 101: JMP  MEM16 (intersegment)
+                // 110: PUSH MEM16
+                // 111: (not used)
+            }
+#endif
             else if (JumpLookup[Byte0])
             {
                 printf("%s ($+2)%+hhd\n", JumpLookup[Byte0], InstructionStream[InstructionIndex++]);
+            }
+            else if (ParameterlessLookup[Byte0])
+            {
+                printf("%s\n", ParameterlessLookup[Byte0]);
             }
             else
             {
