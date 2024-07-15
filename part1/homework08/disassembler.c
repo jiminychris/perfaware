@@ -566,15 +566,21 @@ int main(int ArgCount, char **Args)
                     } break;
 
                     case MODE_MEMORY_DISPLACEMENT_8_BIT:
+                    case MODE_MEMORY_DISPLACEMENT_16_BIT:
                     {
                         char *MemoryAddress = MemoryModeLookup[R_M];
-                        u8 Disp = Memory[InstructionPointer++];
+                        u16 Disp = Memory[InstructionPointer++];
+                        if (Mod == MODE_MEMORY_DISPLACEMENT_16_BIT)
+                        {
+                            Disp = (Memory[InstructionPointer++] << 8) | Disp;
+                        }
                         u32 MemoryOffset = Disp;
                         if (Disp)
                         {
-                            snprintf(MemoryAddressBuffer, sizeof(MemoryAddressBuffer), "%s %+hhd", MemoryAddress, Disp);
+                            snprintf(MemoryAddressBuffer, sizeof(MemoryAddressBuffer), "%s %+hd", MemoryAddress, Disp);
                             MemoryAddress = MemoryAddressBuffer;
                         }
+
                         switch (R_M) {
                             case memory_mode_BX_SI:
                             {
@@ -616,30 +622,6 @@ int main(int ArgCount, char **Args)
                             u8 DataHi = Memory[InstructionPointer++];
                             Memory[MemoryOffset + 1] = DataHi;
                             u16 Data = (DataHi << 8) | DataLo;
-                            snprintf(DataBuffer, sizeof(DataBuffer), "word %hd", Data);
-                        }
-                        else
-                        {
-                            snprintf(DataBuffer, sizeof(DataBuffer), "byte %hhd", DataLo);
-                        }
-                        printf("MOV [%s], %s", MemoryAddress, DataBuffer);
-                    } break;
-
-                    case MODE_MEMORY_DISPLACEMENT_16_BIT:
-                    {
-                        char *MemoryAddress = MemoryModeLookup[R_M];
-                        u8 LowByte = Memory[InstructionPointer++];
-                        u8 HighByte = Memory[InstructionPointer++];
-                        int Disp = HighByte << 8 | LowByte;
-                        if (Disp)
-                        {
-                            snprintf(MemoryAddressBuffer, sizeof(MemoryAddressBuffer), "%s %+hd", MemoryAddress, Disp);
-                            MemoryAddress = MemoryAddressBuffer;
-                        }
-                        u8 DataLo = Memory[InstructionPointer++];
-                        if (DataSize == DATA_SIZE_WORD)
-                        {
-                            u16 Data = (Memory[InstructionPointer++] << 8) | DataLo;
                             snprintf(DataBuffer, sizeof(DataBuffer), "word %hd", Data);
                         }
                         else
@@ -1153,6 +1135,13 @@ int main(int ArgCount, char **Args)
                     case jump_operator_JB:
                     {
                         Jump = FlagCarry;
+                    } break;
+
+                    case jump_operator_LOOP:
+                    {
+                        u16 CX = Registers[register_name_CX] - 1;
+                        Registers[register_name_CX] = CX;
+                        Jump = CX;
                     } break;
 
                     case jump_operator_LOOPNZ:
