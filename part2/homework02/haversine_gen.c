@@ -1,30 +1,18 @@
-#include "stdint.h"
-#include "stdlib.h"
-#include "stdio.h"
-#include "math.h"
-
-typedef uint8_t  u8;
-typedef uint16_t u16;
-typedef uint32_t u32;
-typedef uint64_t u64;
-typedef int8_t   s8;
-typedef int16_t  s16;
-typedef int32_t  s32;
-typedef int64_t  s64;
-typedef float    r32;
-typedef double   r64;
+#include "haversine_shared.h"
+#include "listing_0065_haversine_formula.c"
 
 r64 CLUSTER_WIDTH = 10.0;
-r64 INV_RAND_MAX = 1.0 / (r64)RAND_MAX;
 
-inline r64
+#define EARTH_RADIUS 6372.8
+
+static inline r64
 Random01()
 {
     r64 Result = rand() * INV_RAND_MAX;
     return Result;
 }
 
-inline r64
+static inline r64
 RandomBetween(r64 Min, r64 Max)
 {
     r64 Result = Min + Random01() * (Max - Min);
@@ -33,6 +21,7 @@ RandomBetween(r64 Min, r64 Max)
 
 int main(int ArgCount, char **Args)
 {
+    FILE *Dump = fopen("haversine_gen.r64", "wb");
     if (ArgCount == 3)
     {
         unsigned int Seed = atoi(Args[1]);
@@ -51,6 +40,8 @@ int main(int ArgCount, char **Args)
             r64 APsi = fmod(OriginAPsi + RandomBetween(-CLUSTER_WIDTH, CLUSTER_WIDTH), 180.0);
             r64 BTheta = fmod(OriginBTheta + RandomBetween(-CLUSTER_WIDTH, CLUSTER_WIDTH), 360.0);
             r64 BPsi = fmod(OriginBPsi + RandomBetween(-CLUSTER_WIDTH, CLUSTER_WIDTH), 180.0);
+            r64 Result = ReferenceHaversine(ATheta, APsi, BTheta, BPsi, EARTH_RADIUS);
+            fwrite(&Result, sizeof(Result), 1, Dump);
             printf("    {\"x0\": %f, \"y0\": %f, \"x1\": %f, \"y1\": %f}%s\n", ATheta, APsi, BTheta, BPsi, Endl[!!Count]);
         }
         printf("  ]\n");

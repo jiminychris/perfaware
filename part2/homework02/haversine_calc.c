@@ -1,37 +1,31 @@
-#include "stdint.h"
-#include "stdlib.h"
-#include "stdio.h"
-#include "math.h"
-
-typedef uint8_t  u8;
-typedef uint16_t u16;
-typedef uint32_t u32;
-typedef uint64_t u64;
-typedef int8_t   s8;
-typedef int16_t  s16;
-typedef int32_t  s32;
-typedef int64_t  s64;
-typedef float    r32;
-typedef double   r64;
-
+#include "haversine_shared.h"
+#include "haversine_memory.h"
 #include "listing_0065_haversine_formula.c"
 #include "json_parse.c"
 
-#define FILE_BUFFER_SIZE 1024*1024*1024
 #define EARTH_RADIUS 6372.8
-#define ArrayCount(Array) (sizeof(Array) / sizeof(Array[0]))
 
 int main(int ArgCount, char **Args)
 {
     if (ArgCount == 2)
     {
+        FILE *Dump = fopen("haversine_calc.r64", "wb");
+        struct memory_arena Arena;
+        char *Memory = malloc(Gigabyte(1));
+        InitializeArena(&Arena, Gigabyte(1), Memory);
+
         FILE *Input = fopen(Args[1], "rb");
-        char *Memory = malloc(FILE_BUFFER_SIZE);
-        u64 Size = fread(Memory, 1, FILE_BUFFER_SIZE, Input);
-        struct token_stream_builder Builder = Tokenize(Size, Memory);
-        printf("TokenCount: %lu\n", Builder.Count);
-        printf("StringPoolSize: %llu\n", Builder.StringPoolSize);
-//    ReferenceHaversine(X0, Y0, X1, Y1, EARTH_RADIUS);
+        struct memory_arena FileBufferArena = SubArena(&Arena, fread(Arena.Memory, 1, Arena.Size, Input));
+        struct memory_arena ParseArena = SubArena(&Arena, Arena.Size - Arena.Used);
+        struct haversine_pair *Pairs;
+        u64 PairCount = ParseHaversinePairs(FileBufferArena, &ParseArena, &Pairs);
+        while (PairCount--)
+        {
+            struct haversine_pair Pair = *Pairs++;
+            r64 Result = ReferenceHaversine(Pair.X0, Pair.Y0, Pair.X1, Pair.Y1, EARTH_RADIUS);
+            fwrite(&Result, sizeof(Result), 1, Dump);
+            printf("%f\n", Result);
+        }
     }
     else
     {
