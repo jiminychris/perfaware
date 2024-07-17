@@ -1,21 +1,13 @@
 #define DEBUG_PARSE 0
-struct haversine_pair
-{
-    r64 X0;
-    r64 X1;
-    r64 Y0;
-    r64 Y1;
-};
 
 struct json_parser
 {
     u64 JsonSize;
     u64 TokenCount;
-    u64 PairCount;
     char *JsonMemory;
     struct memory_arena StringArena;
     struct memory_arena TokenArena;
-    struct memory_arena PairArena;
+    struct memory_arena ElementArena;
     struct hashed_string *StringHash[256];
 };
 
@@ -26,7 +18,7 @@ struct hashed_string
 };
 
 static inline u32
-HashString(char *String, u32 Length)
+HashString(char *String, memory_size Length)
 {
     Assert(String);
     u32 Result = 0;
@@ -98,6 +90,7 @@ struct token_stream
 
 enum json_token_type
 {
+    json_token_type_None,
     json_token_type_OpenBrace,
     json_token_type_CloseBrace,
     json_token_type_OpenBracket,
@@ -278,7 +271,7 @@ void Tokenize(struct json_parser *Parser)
                         } break;
                     }
                 } while(StillParsing);
-                u32 StringLength = Stream->Position - Start - 1;
+                memory_size StringLength = Stream->Position - Start - 1;
                 char *String = GetStringFromHash(Parser, Stream->Buffer + Start, StringLength);
                 EmitString(Parser, String);
             } break;
@@ -347,7 +340,7 @@ void Tokenize(struct json_parser *Parser)
 
 struct json_token Match(struct token_stream *Stream, enum json_token_type TokenType)
 {
-    struct json_token Result;
+    struct json_token Result = {.Type = json_token_type_None};
     if (Stream->Position < Stream->Size)
     {
         Result = Stream->Buffer[Stream->Position++];
@@ -364,24 +357,134 @@ struct json_token Match(struct token_stream *Stream, enum json_token_type TokenT
     return Result;
 }
 
-struct json_token MatchString(struct token_stream *Stream, char *String)
-{
-    struct json_token Result = Match(Stream, json_token_type_String);
-    if(strcmp(Result.String, String))
-    {
-        printf("Expected '%s' to be '%s'\n", Result.String, String);
-        exit(1);
-    }
-    return Result;
-}
-
 b32 Check(struct token_stream *Stream, enum json_token_type TokenType)
 {
     b32 Result = Stream->Position < Stream->Size && Stream->Buffer[Stream->Position].Type == TokenType;
     return Result;
 }
 
-void Parse(struct json_parser *Parser)
+enum json_element_type
+{
+    json_element_type_None,
+    json_element_type_Object,
+    json_element_type_Array,
+    json_element_type_String,
+    json_element_type_Number,
+};
+
+struct json_element
+{
+    enum json_element_type Type;
+    char *Identifier;
+    union
+    {
+        r64 Number;
+        char *String;
+    };
+    struct json_element *FirstChild;
+    struct json_element *Sibling;
+};
+
+b32 MaybeComma(struct token_stream *Stream)
+{
+    b32 Result = Check(Stream, json_token_type_Comma);
+    if (Result)
+    {
+        Match(Stream, json_token_type_Comma);
+    }
+    return Result;
+}
+
+struct json_element *ParseElement(struct json_parser *Parser, struct token_stream *Stream);
+struct json_element *ParseObject(struct json_parser *Parser, struct token_stream *Stream, b32 IsArray)
+{
+    enum json_token_type OpenToken = json_token_type_OpenBrace;
+    enum json_token_type CloseToken = json_token_type_CloseBrace;
+    if (IsArray)
+    {
+        OpenToken = json_token_type_OpenBracket;
+        CloseToken = json_token_type_CloseBracket;
+    }
+    struct json_element *ObjectElement = PushStruct(&Parser->ElementArena, struct json_element);
+    ObjectElement->Type = json_element_type_Object;
+    ObjectElement->FirstChild = ObjectElement->Sibling = 0;
+    Match(Stream, OpenToken);
+    b32 More = !Check(Stream, CloseToken);
+    struct json_element *Tail = 0;
+    while (More)
+    {
+        char *Identifier = 0;
+        if (!IsArray)
+        {
+            Identifier = Match(Stream, json_token_type_String).String;
+            Match(Stream, json_token_type_Colon);
+        }
+        struct json_element *Element = ParseElement(Parser, Stream);
+        Element->Identifier = Identifier;
+        if (Tail)
+        {
+            Tail->Sibling = Element;
+        }
+        else
+        {
+            ObjectElement->FirstChild = Element;
+        }
+        Tail = Element;
+        More = MaybeComma(Stream);
+    }
+    Match(Stream, CloseToken);
+    return ObjectElement;
+}
+
+struct json_element *GetElement(struct json_element *Object, char *Identifier)
+{
+    Assert(Object->Type == json_element_type_Object);
+    struct json_element *Test = Object->FirstChild;
+    struct json_element *Result = 0;
+    while (Test)
+    {
+        if (0 == strcmp(Identifier, Test->Identifier))
+        {
+            Result = Test;
+            break;
+        }
+        Test = Test->Sibling;
+    }
+    return Result;
+}
+
+struct json_element *ParseElement(struct json_parser *Parser, struct token_stream *Stream)
+{
+    struct json_element *Result = 0;
+    if (Check(Stream, json_token_type_OpenBrace))
+    {
+        Result = ParseObject(Parser, Stream, 0);
+    }
+    else if (Check(Stream, json_token_type_OpenBracket))
+    {
+        Result = ParseObject(Parser, Stream, 1);
+    }
+    else if (Check(Stream, json_token_type_String))
+    {
+        Result = PushStruct(&Parser->ElementArena, struct json_element);
+        Result->Type = json_element_type_String;
+        Result->String = Match(Stream, json_token_type_String).String;
+    }
+    else if (Check(Stream, json_token_type_Number))
+    {
+        Result = PushStruct(&Parser->ElementArena, struct json_element);
+        Result->Type = json_element_type_Number;
+        Result->Number = Match(Stream, json_token_type_Number).Number;
+    }
+    else
+    {
+        printf("Unrecognized next token\n");
+        exit(1);
+    }
+    return Result;
+}
+
+struct json_element *Parse(struct json_parser *Parser)
 {
     struct token_stream Stream_ =
     {
@@ -390,43 +493,10 @@ void Parse(struct json_parser *Parser)
         .Buffer = Parser->TokenArena.Memory,
     };
     struct token_stream *Stream = &Stream_;
-    Match(Stream, json_token_type_OpenBrace);
-    MatchString(Stream, "pairs");
-    Match(Stream, json_token_type_Colon);
-    Match(Stream, json_token_type_OpenBracket);
-    b32 More = Check(Stream, json_token_type_OpenBrace);
-    while (More)
-    {
-        ++Parser->PairCount;
-        struct haversine_pair *Pair = PushStruct(&Parser->PairArena, struct haversine_pair);
-        Match(Stream, json_token_type_OpenBrace);
-        MatchString(Stream, "x0");
-        Match(Stream, json_token_type_Colon);
-        Pair->X0 = Match(Stream, json_token_type_Number).Number;
-        Match(Stream, json_token_type_Comma);
-        MatchString(Stream, "y0");
-        Match(Stream, json_token_type_Colon);
-        Pair->Y0 = Match(Stream, json_token_type_Number).Number;
-        Match(Stream, json_token_type_Comma);
-        MatchString(Stream, "x1");
-        Match(Stream, json_token_type_Colon);
-        Pair->X1 = Match(Stream, json_token_type_Number).Number;
-        Match(Stream, json_token_type_Comma);
-        MatchString(Stream, "y1");
-        Match(Stream, json_token_type_Colon);
-        Pair->Y1 = Match(Stream, json_token_type_Number).Number;
-        Match(Stream, json_token_type_CloseBrace);
-        More = Check(Stream, json_token_type_Comma);
-        if (More)
-        {
-            Match(Stream, json_token_type_Comma);
-        }
-    }
-    Match(Stream, json_token_type_CloseBracket);
-    Match(Stream, json_token_type_CloseBrace);
+    return ParseElement(Parser, Stream);
 }
 
-u64 ParseHaversinePairs(struct memory_arena JsonArena, struct memory_arena *Arena, struct haversine_pair **Pairs)
+struct json_element *ParseJson(struct memory_arena JsonArena, struct memory_arena *Arena)
 {
     struct json_parser Parser = {0};
     Parser.JsonSize = JsonArena.Size;
@@ -434,8 +504,6 @@ u64 ParseHaversinePairs(struct memory_arena JsonArena, struct memory_arena *Aren
     Parser.StringArena = SubArena(Arena, 1024);
     Parser.TokenArena = SubArena(Arena, Arena->Size - Arena->Used);
     Tokenize(&Parser);
-    Parser.PairArena = SubArena(&Parser.TokenArena, Parser.TokenArena.Size - Parser.TokenArena.Used);
-    Parse(&Parser);
-    *Pairs = (struct haversine_pair *)Parser.PairArena.Memory;
-    return Parser.PairCount;
+    Parser.ElementArena = SubArena(&Parser.TokenArena, Parser.TokenArena.Size - Parser.TokenArena.Used);
+    return Parse(&Parser);
 }

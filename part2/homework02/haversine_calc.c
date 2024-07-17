@@ -17,14 +17,21 @@ int main(int ArgCount, char **Args)
         FILE *Input = fopen(Args[1], "rb");
         struct memory_arena FileBufferArena = SubArena(&Arena, fread(Arena.Memory, 1, Arena.Size, Input));
         struct memory_arena ParseArena = SubArena(&Arena, Arena.Size - Arena.Used);
-        struct haversine_pair *Pairs;
-        u64 PairCount = ParseHaversinePairs(FileBufferArena, &ParseArena, &Pairs);
-        while (PairCount--)
+        struct json_element *Root = ParseJson(FileBufferArena, &ParseArena);
+        Assert(Root);
+        struct json_element *Pairs = GetElement(Root, "pairs");
+        Assert(Pairs);
+        struct json_element *Pair = Pairs->FirstChild;
+        while (Pair)
         {
-            struct haversine_pair Pair = *Pairs++;
-            r64 Result = ReferenceHaversine(Pair.X0, Pair.Y0, Pair.X1, Pair.Y1, EARTH_RADIUS);
+            r64 X0 = GetElement(Pair, "x0")->Number;
+            r64 Y0 = GetElement(Pair, "y0")->Number;
+            r64 X1 = GetElement(Pair, "x1")->Number;
+            r64 Y1 = GetElement(Pair, "y1")->Number;
+            r64 Result = ReferenceHaversine(X0, Y0, X1, Y1, EARTH_RADIUS);
             fwrite(&Result, sizeof(Result), 1, Dump);
             printf("%f\n", Result);
+            Pair = Pair->Sibling;
         }
     }
     else

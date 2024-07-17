@@ -19,6 +19,22 @@ RandomBetween(r64 Min, r64 Max)
     return Result;
 }
 
+static inline r64
+Wrap(r64 Value, r64 Min, r64 Max)
+{
+    Assert(Min < Max);
+    r64 Diff = Max - Min;
+    while (Value < Min)
+    {
+        Value += Diff;
+    }
+    while (Max < Value)
+    {
+        Value -= Diff;
+    }
+    return Value;
+}
+
 int main(int ArgCount, char **Args)
 {
     FILE *Dump = fopen("haversine_gen.r64", "wb");
@@ -27,19 +43,19 @@ int main(int ArgCount, char **Args)
         unsigned int Seed = atoi(Args[1]);
         u32 Count = atoi(Args[2]);
         srand(Seed);
-        r64 OriginATheta = Random01() * 360;
-        r64 OriginAPsi   = Random01() * 180;
-        r64 OriginBTheta = Random01() * 360;
-        r64 OriginBPsi   = Random01() * 180;
+        r64 OriginATheta = RandomBetween(-180.0, 180.0);
+        r64 OriginAPsi   = RandomBetween(-90.0, 90.0);
+        r64 OriginBTheta = RandomBetween(-180.0, 180.0);
+        r64 OriginBPsi   = RandomBetween(-90.0, 90.0);
         printf("{\n");
         printf("  \"pairs\": [\n");
         char *Endl[] = {"",","};
         while (Count--)
         {
-            r64 ATheta = fmod(OriginATheta + RandomBetween(-CLUSTER_WIDTH, CLUSTER_WIDTH), 360.0);
-            r64 APsi = fmod(OriginAPsi + RandomBetween(-CLUSTER_WIDTH, CLUSTER_WIDTH), 180.0);
-            r64 BTheta = fmod(OriginBTheta + RandomBetween(-CLUSTER_WIDTH, CLUSTER_WIDTH), 360.0);
-            r64 BPsi = fmod(OriginBPsi + RandomBetween(-CLUSTER_WIDTH, CLUSTER_WIDTH), 180.0);
+            r64 ATheta = Wrap(OriginATheta + RandomBetween(-CLUSTER_WIDTH, CLUSTER_WIDTH), -180.0, 180.0);
+            r64 APsi = Wrap(OriginAPsi + RandomBetween(-CLUSTER_WIDTH, CLUSTER_WIDTH), -90.0, 90.0);
+            r64 BTheta = Wrap(OriginBTheta + RandomBetween(-CLUSTER_WIDTH, CLUSTER_WIDTH), -180.0, 180.0);
+            r64 BPsi = Wrap(OriginBPsi + RandomBetween(-CLUSTER_WIDTH, CLUSTER_WIDTH), -90.0, 90.0);
             r64 Result = ReferenceHaversine(ATheta, APsi, BTheta, BPsi, EARTH_RADIUS);
             fwrite(&Result, sizeof(Result), 1, Dump);
             printf("    {\"x0\": %f, \"y0\": %f, \"x1\": %f, \"y1\": %f}%s\n", ATheta, APsi, BTheta, BPsi, Endl[!!Count]);
